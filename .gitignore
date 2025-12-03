@@ -1,0 +1,44 @@
+# Haskell / Cabal
+dist-newstyle/
+dist/
+*.hi
+*.o
+*.chi
+*.chs.h
+.cabal-sandbox/
+cabal.sandbox.config
+*.prof
+*.aux
+*.hp
+*.eventlog
+.stack-work/
+cabal.project.local
+cabal.project.local~
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+tags
+TAGS
+
+# Build outputs
+result
+result-*
+
+# Test artifacts
+*.tix
+.hpc/
+
+# claude-verify specific
+*.db
+*.db-journal
+claude_validation_report_*.md
+.claude-verify/
+
+# Generated docs
+docs/haddock/
