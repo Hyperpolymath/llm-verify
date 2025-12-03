@@ -1,4 +1,4 @@
-# claude-verify
+# LLM-verify
 
 Real verification for LLM-generated code via ECHIDNA integration.
 
