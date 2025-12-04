@@ -1,0 +1,210 @@
+/* Claude Verify - Content Script Styles */
+
+/* Button container on code blocks */
+.cv-button-container {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 100;
+}
+
+pre:hover .cv-button-container {
+  opacity: 1;
+}
+
+/* Verify and feedback buttons */
+.cv-verify-btn,
+.cv-feedback-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cv-verify-btn {
+  background: #0066cc;
+  color: white;
+}
+
+.cv-verify-btn:hover {
+  background: #0055aa;
+}
+
+.cv-feedback-btn {
+  background: #666;
+  color: white;
+}
+
+.cv-feedback-btn:hover {
+  background: #555;
+}
+
+/* Status indicator */
+.cv-status-indicator {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 100;
+}
+
+.cv-status-proved {
+  background: #0a0;
+  color: white;
+}
+
+.cv-status-counterexample {
+  background: #c00;
+  color: white;
+}
+
+.cv-status-unknown {
+  background: #f80;
+  color: white;
+}
+
+.cv-status-error {
+  background: #c00;
+  color: white;
+}
+
+/* Notification toast */
+.cv-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: cv-slide-in 0.3s ease;
+}
+
+.cv-notification-info {
+  background: #333;
+  color: white;
+}
+
+.cv-notification-success {
+  background: #0a0;
+  color: white;
+}
+
+.cv-notification-warning {
+  background: #f80;
+  color: white;
+}
+
+.cv-notification-error {
+  background: #c00;
+  color: white;
+}
+
+.cv-notification-fade {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+@keyframes cv-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Feedback overlay */
+.cv-feedback-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.cv-feedback-form {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.cv-feedback-form h3 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: #1a1a1a;
+}
+
+.cv-feedback-form p {
+  margin: 12px 0 6px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.cv-feedback-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.cv-feedback-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cv-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cv-btn:hover {
+  background: #f0f0f0;
+}
+
+.cv-btn-primary {
+  background: #0066cc;
+  border-color: #0066cc;
+  color: white;
+}
+
+.cv-btn-primary:hover {
+  background: #0055aa;
+}

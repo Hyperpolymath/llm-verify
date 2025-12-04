@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Verify Options</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    h2 { font-size: 18px; margin-top: 30px; margin-bottom: 10px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; }
+    input[type="text"], textarea {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 16px;
+    }
+    textarea { min-height: 100px; resize: vertical; }
+    button {
+      padding: 10px 20px;
+      background: #0066cc;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    button:hover { background: #0055aa; }
+    .saved { color: #0a0; margin-left: 10px; }
+    .section { background: #f5f5f5; padding: 16px; border-radius: 8px; margin-bottom: 20px; }
+    .feedback-item {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .feedback-item .category { font-weight: 600; color: #c00; }
+    .feedback-item .issue { color: #333; }
+    .feedback-item .time { font-size: 12px; color: #999; }
+    .empty { color: #999; font-style: italic; }
+    .danger { background: #fee; border: 1px solid #fcc; padding: 16px; border-radius: 8px; }
+    .danger button { background: #c00; }
+    .danger button:hover { background: #a00; }
+  </style>
+</head>
+<body>
+  <h1>Claude Verify Options</h1>
+
+  <div class="section">
+    <h2>Daemon Connection</h2>
+    <label for="daemon-url">Verification Daemon URL:</label>
+    <input type="text" id="daemon-url" placeholder="http://localhost:9847">
+    <p style="font-size: 13px; color: #666;">
+      The URL of the local claude-verify daemon. Run <code>claude-verify daemon</code> to start it.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Default Project</h2>
+    <label for="default-project">Default Project Name:</label>
+    <input type="text" id="default-project" placeholder="my-project">
+    <p style="font-size: 13px; color: #666;">
+      Used when no .claude-context.toml is loaded.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>Known Issues</h2>
+    <label for="global-issues">Global Known Issues (one per line):</label>
+    <textarea id="global-issues" placeholder="Add issues that apply to all projects..."></textarea>
+    <p style="font-size: 13px; color: #666;">
+      These will be included in every context injection.
+    </p>
+  </div>
+
+  <button id="save">Save Settings</button>
+  <span id="saved-msg" class="saved" style="display: none;">Saved!</span>
+
+  <h2>Recorded Feedback</h2>
+  <div id="feedback-list">
+    <p class="empty">No feedback recorded yet.</p>
+  </div>
+  <button id="export-feedback" style="background: #666;">Export Feedback</button>
+
+  <div class="danger" style="margin-top: 30px;">
+    <h2 style="color: #c00; margin-top: 0;">Danger Zone</h2>
+    <button id="clear-feedback">Clear All Feedback</button>
+    <button id="reset-settings" style="margin-left: 8px;">Reset All Settings</button>
+  </div>
+
+  <script>
+    // Load settings
+    chrome.storage.local.get(['daemonUrl', 'defaultProject', 'globalIssues', 'feedbackItems'], (stored) => {
+      document.getElementById('daemon-url').value = stored.daemonUrl || 'http://localhost:9847';
+      document.getElementById('default-project').value = stored.defaultProject || '';
+      document.getElementById('global-issues').value = (stored.globalIssues || []).join('\n');
+      displayFeedback(stored.feedbackItems || []);
+    });
+
+    // Save settings
+    document.getElementById('save').onclick = () => {
+      const daemonUrl = document.getElementById('daemon-url').value.trim();
+      const defaultProject = document.getElementById('default-project').value.trim();
+      const globalIssues = document.getElementById('global-issues').value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s);
+
+      chrome.storage.local.set({ daemonUrl, defaultProject, globalIssues }, () => {
+        const msg = document.getElementById('saved-msg');
+        msg.style.display = 'inline';
+        setTimeout(() => msg.style.display = 'none', 2000);
+      });
+    };
+
+    // Display feedback
+    function displayFeedback(items) {
+      const container = document.getElementById('feedback-list');
+      if (!items.length) {
+        container.innerHTML = '<p class="empty">No feedback recorded yet.</p>';
+        return;
+      }
+
+      container.innerHTML = items.slice(-20).reverse().map(item => `
+        <div class="feedback-item">
+          <span class="category">${item.category || 'unknown'}</span>
+          <span class="time">${new Date(item.timestamp).toLocaleString()}</span>
+          <div class="issue">${escapeHtml(item.issue)}</div>
+        </div>
+      `).join('');
+    }
+
+    // Export feedback
+    document.getElementById('export-feedback').onclick = async () => {
+      const { feedbackItems } = await chrome.storage.local.get(['feedbackItems']);
+      const data = JSON.stringify(feedbackItems || [], null, 2);
+      const blob = new Blob([data], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'claude-verify-feedback.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    // Clear feedback
+    document.getElementById('clear-feedback').onclick = async () => {
+      if (confirm('Are you sure you want to delete all recorded feedback?')) {
+        await chrome.storage.local.set({ feedbackItems: [] });
+        displayFeedback([]);
+      }
+    };
+
+    // Reset settings
+    document.getElementById('reset-settings').onclick = async () => {
+      if (confirm('Are you sure you want to reset all settings to defaults?')) {
+        await chrome.storage.local.set({
+          daemonUrl: 'http://localhost:9847',
+          defaultProject: '',
+          globalIssues: [],
+          project: null,
+          knownIssues: []
+        });
+        location.reload();
+      }
+    };
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Verify",
+  "version": "0.1.0",
+  "description": "Inject project context and verify LLM-generated code",
+  "author": "Hyperpolymath",
+  "homepage_url": "https://github.com/Hyperpolymath/llm-verify",
+
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "https://claude.ai/*",
+    "http://localhost:9847/*"
+  ],
+
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "Claude Verify"
+  },
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "options_ui": {
+    "page": "popup/options.html",
+    "open_in_tab": true
+  }
+}

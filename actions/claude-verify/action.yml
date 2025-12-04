@@ -1,0 +1,205 @@
+name: 'Claude Verify'
+description: 'Run formal verification on code using ECHIDNA'
+author: 'Hyperpolymath'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  files:
+    description: 'Files or patterns to verify (default: changed files)'
+    required: false
+    default: ''
+
+  provers:
+    description: 'Provers to use (comma-separated)'
+    required: false
+    default: 'z3,cvc5'
+
+  timeout:
+    description: 'Timeout per prover in milliseconds'
+    required: false
+    default: '30000'
+
+  fail-on:
+    description: 'Statuses that cause failure (comma-separated)'
+    required: false
+    default: 'counterexample,error'
+
+  report-format:
+    description: 'Report format: markdown, json, sarif'
+    required: false
+    default: 'markdown'
+
+  upload-sarif:
+    description: 'Upload SARIF to GitHub Security tab'
+    required: false
+    default: 'false'
+
+  echidna-version:
+    description: 'ECHIDNA version to install'
+    required: false
+    default: 'latest'
+
+  claude-verify-version:
+    description: 'claude-verify version to install'
+    required: false
+    default: 'latest'
+
+outputs:
+  status:
+    description: 'Overall verification status'
+    value: ${{ steps.verify.outputs.status }}
+
+  proved:
+    description: 'Number of VCs proved'
+    value: ${{ steps.verify.outputs.proved }}
+
+  counterexamples:
+    description: 'Number of counterexamples found'
+    value: ${{ steps.verify.outputs.counterexamples }}
+
+  unknown:
+    description: 'Number of unknown results'
+    value: ${{ steps.verify.outputs.unknown }}
+
+  report-path:
+    description: 'Path to verification report'
+    value: ${{ steps.verify.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Haskell
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: '9.6'
+        cabal-version: '3.10'
+
+    - name: Cache cabal
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+          dist-newstyle
+        key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal') }}
+
+    - name: Install claude-verify
+      shell: bash
+      run: |
+        if [ "${{ inputs.claude-verify-version }}" = "latest" ]; then
+          cabal update
+          cabal install claude-verify --installdir=$HOME/.local/bin
+        else
+          cabal install claude-verify-${{ inputs.claude-verify-version }} --installdir=$HOME/.local/bin
+        fi
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Install ECHIDNA
+      shell: bash
+      run: |
+        # Download and install ECHIDNA
+        VERSION="${{ inputs.echidna-version }}"
+        if [ "$VERSION" = "latest" ]; then
+          VERSION=$(curl -s https://api.github.com/repos/Hyperpolymath/echidna/releases/latest | jq -r .tag_name)
+        fi
+
+        PLATFORM="linux-x86_64"
+        if [ "$RUNNER_OS" = "macOS" ]; then
+          PLATFORM="darwin-x86_64"
+        fi
+
+        curl -L "https://github.com/Hyperpolymath/echidna/releases/download/${VERSION}/echidna-${PLATFORM}.tar.gz" | tar xz
+        sudo mv echidna /usr/local/bin/
+        echidna --version
+
+    - name: Determine files to verify
+      id: files
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.files }}" ]; then
+          echo "files=${{ inputs.files }}" >> $GITHUB_OUTPUT
+        else
+          # Get changed files
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.sha }} | grep -E '\.(rs|hs|adb|ads)$' || true)
+          else
+            FILES=$(git diff --name-only HEAD~1 | grep -E '\.(rs|hs|adb|ads)$' || true)
+          fi
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run verification
+      id: verify
+      shell: bash
+      run: |
+        FILES="${{ steps.files.outputs.files }}"
+
+        if [ -z "$FILES" ]; then
+          echo "No files to verify"
+          echo "status=skipped" >> $GITHUB_OUTPUT
+          echo "proved=0" >> $GITHUB_OUTPUT
+          echo "counterexamples=0" >> $GITHUB_OUTPUT
+          echo "unknown=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Run verification
+        REPORT_PATH="verification-report.${{ inputs.report-format }}"
+
+        claude-verify verify $FILES \
+          --prover ${{ inputs.provers }} \
+          --timeout ${{ inputs.timeout }} \
+          --format ${{ inputs.report-format }} \
+          --output "$REPORT_PATH" \
+          > verification-output.txt 2>&1 || true
+
+        # Parse results
+        PROVED=$(grep -c "proved" verification-output.txt || echo "0")
+        COUNTEREXAMPLES=$(grep -c "counterexample" verification-output.txt || echo "0")
+        UNKNOWN=$(grep -c "unknown" verification-output.txt || echo "0")
+
+        echo "proved=$PROVED" >> $GITHUB_OUTPUT
+        echo "counterexamples=$COUNTEREXAMPLES" >> $GITHUB_OUTPUT
+        echo "unknown=$UNKNOWN" >> $GITHUB_OUTPUT
+        echo "report-path=$REPORT_PATH" >> $GITHUB_OUTPUT
+
+        # Determine status
+        if [ "$COUNTEREXAMPLES" -gt 0 ]; then
+          echo "status=failed" >> $GITHUB_OUTPUT
+        elif [ "$UNKNOWN" -gt 0 ]; then
+          echo "status=partial" >> $GITHUB_OUTPUT
+        else
+          echo "status=passed" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: verification-report
+        path: verification-report.*
+
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true' && hashFiles('verification-report.sarif') != ''
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: verification-report.sarif
+
+    - name: Check failure conditions
+      shell: bash
+      run: |
+        FAIL_ON="${{ inputs.fail-on }}"
+        STATUS="${{ steps.verify.outputs.status }}"
+
+        if echo "$FAIL_ON" | grep -q "counterexample" && [ "${{ steps.verify.outputs.counterexamples }}" -gt 0 ]; then
+          echo "::error::Verification found counterexamples"
+          exit 1
+        fi
+
+        if echo "$FAIL_ON" | grep -q "error" && [ "$STATUS" = "failed" ]; then
+          echo "::error::Verification failed"
+          exit 1
+        fi

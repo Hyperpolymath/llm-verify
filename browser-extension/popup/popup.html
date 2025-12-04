@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Verify</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Claude Verify</h1>
+      <span class="status" id="status">Disconnected</span>
+    </header>
+
+    <section class="project-section">
+      <h2>Current Project</h2>
+      <div id="project-info">
+        <p class="no-project">No project loaded</p>
+      </div>
+      <button id="load-context" class="btn btn-primary">Load .claude-context.toml</button>
+      <input type="file" id="file-input" accept=".toml" style="display: none;">
+    </section>
+
+    <section class="known-issues-section">
+      <h2>Known Issues <span id="issue-count">(0)</span></h2>
+      <ul id="known-issues" class="issue-list">
+        <li class="no-issues">No known issues</li>
+      </ul>
+    </section>
+
+    <section class="actions-section">
+      <h2>Actions</h2>
+      <button id="inject-context" class="btn" disabled>Inject into Chat</button>
+      <button id="verify-code" class="btn" disabled>Verify Selected Code</button>
+      <button id="record-feedback" class="btn">Record Feedback</button>
+    </section>
+
+    <section class="daemon-section">
+      <h2>Verification Daemon</h2>
+      <div class="daemon-status">
+        <span id="daemon-indicator" class="indicator offline"></span>
+        <span id="daemon-text">Not connected</span>
+      </div>
+      <input type="text" id="daemon-url" value="http://localhost:9847" placeholder="Daemon URL">
+      <button id="connect-daemon" class="btn btn-small">Connect</button>
+    </section>
+
+    <footer>
+      <a href="https://github.com/Hyperpolymath/llm-verify" target="_blank">Documentation</a>
+      <span class="version">v0.1.0</span>
+    </footer>
+  </div>
+
+  <!-- Feedback Modal -->
+  <div id="feedback-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>Record Feedback</h2>
+      <form id="feedback-form">
+        <label for="fb-output">Claude's Output:</label>
+        <textarea id="fb-output" rows="3" required></textarea>
+
+        <label for="fb-issue">What was wrong:</label>
+        <textarea id="fb-issue" rows="2" required></textarea>
+
+        <label for="fb-correction">Correction:</label>
+        <textarea id="fb-correction" rows="3"></textarea>
+
+        <label for="fb-category">Category:</label>
+        <select id="fb-category">
+          <option value="logic_error">Logic Error</option>
+          <option value="type_error">Type Error</option>
+          <option value="syntax_error">Syntax Error</option>
+          <option value="security_flaw">Security Flaw</option>
+          <option value="api_misuse">API Misuse</option>
+          <option value="other">Other</option>
+        </select>
+
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Save Feedback</button>
+          <button type="button" id="cancel-feedback" class="btn">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

@@ -63,15 +63,21 @@ library
                       ClaudeVerify.Languages.Rust
                       ClaudeVerify.Languages.Haskell
                       ClaudeVerify.Languages.Ada
+                      ClaudeVerify.Integration.Echomesh
+                      ClaudeVerify.Integration.EchidnaProtocol
+                      ClaudeVerify.Daemon
     other-modules:    ClaudeVerify.Internal.AST
                       ClaudeVerify.Internal.SMTLIB
                       ClaudeVerify.Internal.Types
     build-depends:    base >= 4.17 && < 5
                     , aeson >= 2.1
+                    , aeson-pretty >= 0.8
                     , bytestring >= 0.11
                     , containers >= 0.6
                     , directory >= 1.3
                     , filepath >= 1.4
+                    , http-client >= 0.7
+                    , http-types >= 0.12
                     , megaparsec >= 9.3
                     , mtl >= 2.3
                     , optparse-applicative >= 0.17
@@ -85,6 +91,8 @@ library
                     , transformers >= 0.6
                     , uuid >= 1.3
                     , vector >= 0.13
+                    , wai >= 3.2
+                    , warp >= 3.3
                     , what4 >= 1.4
     hs-source-dirs:   src
     default-language: GHC2021

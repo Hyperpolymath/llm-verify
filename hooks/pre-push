@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# claude-verify pre-push hook
+#
+# This hook runs full verification before pushing to remote.
+# Unlike pre-commit (quick checks), this runs formal verification.
+#
+# Installation:
+#   cp hooks/pre-push .git/hooks/pre-push
+#   chmod +x .git/hooks/pre-push
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Configuration
+CLAUDE_VERIFY="${CLAUDE_VERIFY:-claude-verify}"
+ECHIDNA_TIMEOUT="${ECHIDNA_TIMEOUT:-60000}"
+
+log_info() { echo -e "${BLUE}[claude-verify]${NC} $1"; }
+log_success() { echo -e "${GREEN}[claude-verify]${NC} $1"; }
+log_warning() { echo -e "${YELLOW}[claude-verify]${NC} $1"; }
+log_error() { echo -e "${RED}[claude-verify]${NC} $1"; }
+
+# Check if claude-verify is installed
+if ! command -v "$CLAUDE_VERIFY" &> /dev/null; then
+    log_warning "claude-verify not found - skipping formal verification"
+    exit 0
+fi
+
+# Get commits being pushed
+remote="$1"
+url="$2"
+
+log_info "Pre-push verification for $remote ($url)"
+
+# Read stdin for refs
+while read local_ref local_sha remote_ref remote_sha; do
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        # Branch deletion
+        continue
+    fi
+
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # New branch - check all files
+        range="$local_sha"
+    else
+        # Existing branch - check changed files
+        range="$remote_sha..$local_sha"
+    fi
+
+    # Get changed files
+    CHANGED_FILES=$(git diff --name-only "$range" 2>/dev/null || git ls-tree -r --name-only "$local_sha")
+
+    # Filter verifiable files
+    VERIFIABLE=""
+    for file in $CHANGED_FILES; do
+        case "$file" in
+            *.rs|*.hs|*.adb|*.ads)
+                VERIFIABLE="$VERIFIABLE $file"
+                ;;
+        esac
+    done
+
+    if [ -z "$VERIFIABLE" ]; then
+        log_info "No files requiring formal verification"
+        continue
+    fi
+
+    FILE_COUNT=$(echo "$VERIFIABLE" | wc -w | tr -d ' ')
+    log_info "Running formal verification on $FILE_COUNT file(s)..."
+
+    # Run formal verification
+    if $CLAUDE_VERIFY verify $VERIFIABLE --timeout "$ECHIDNA_TIMEOUT" --format terminal; then
+        log_success "Formal verification passed"
+    else
+        log_error "Formal verification failed"
+        log_error "Push blocked. Fix verification errors or use --no-verify."
+        exit 1
+    fi
+done
+
+log_success "Pre-push verification complete"
+exit 0
